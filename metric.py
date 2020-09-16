@@ -8,7 +8,7 @@ import math
 def cal_metrics(gt_lst, pred_lst, cls_id, in_distance):    # per case
     case_TP, case_FP, case_FN = 0, 0, 0
     for gt_kp in gt_lst:
-        gt_x, gt_y, spacing_x, spacing_y = gt_kp
+        gt_x, gt_y, spacing_x, spacing_y = gt_kp[:4]
 
         TP = 0
         FP = 0
@@ -23,6 +23,42 @@ def cal_metrics(gt_lst, pred_lst, cls_id, in_distance):    # per case
                 if pred_kp not in in_distance:
                     in_distance.append(pred_kp)
                 if cls == cls_id:
+                        TP += 1
+                else:
+                    FP += 1
+        if TP:
+            case_TP += 1
+        else:
+            case_FN += 1
+        case_FP += FP
+
+    if len(pred_kp) != len(in_distance):
+        case_FP += len(pred_kp)-len(in_distance)
+
+    return case_TP, case_FP, case_FN
+
+
+def cal_metrics_multi(gt_lst, pred_lst, cls_id, in_distance):    # per case
+    cls_id_dict = {'v1':2, 'v2':3, 'v3':4, 'v4':5, 'v5':6}
+    case_TP, case_FP, case_FN = 0, 0, 0
+    for gt_kp in gt_lst:
+        gt_x, gt_y, spacing_x, spacing_y = gt_kp[:4]
+        signs = gt_kp[4:]
+        cls_ids = [cls_id_dict[i] for i in signs]
+
+        TP = 0
+        FP = 0
+        for pred_kp in pred_lst:
+            # 1. distance < 6 && same cls: TP
+            # 2. other matched: skip
+            # 3. not matched: FP
+            # 4. without match: FN
+            pred_x, pred_y, cls = pred_kp
+            dis = math.sqrt(((gt_x-pred_x)*spacing_x)**2+((gt_y-pred_y)*spacing_y)**2)
+            if dis<6:
+                if pred_kp not in in_distance:
+                    in_distance.append(pred_kp)
+                if cls in cls_ids:
                         TP += 1
                 else:
                     FP += 1
@@ -95,7 +131,7 @@ if __name__ == '__main__':
         if not slice or not spacing:
             continue
         kpoints = slice_info['annotation'][0]['data']['point']
-        gt_lst = [[] for i in range(7)]   # [vertebra-v1, vertebra-v2, disc-v1, disc-v2, disc-v3, disc-v4, disc-v5]
+        gt_lst = [[] for i in range(8)]   # [vertebra-v1, vertebra-v2, disc-v1, disc-v2, disc-v3, disc-v4, disc-v5, disc-multi]
         for point in kpoints:
             if 'vertebra' in point['tag'].keys():
                 if point['tag']['vertebra']=='v1':
@@ -103,6 +139,7 @@ if __name__ == '__main__':
                 if point['tag']['vertebra']=='v2':
                     cls_id = 1
             if 'disc' in point['tag'].keys():
+                signs = []
                 if point['tag']['disc']=='v1':
                     cls_id = 2
                 if point['tag']['disc']=='v2':
@@ -113,7 +150,10 @@ if __name__ == '__main__':
                     cls_id = 5
                 if point['tag']['disc']=='v5':
                     cls_id = 6
-            gt_lst[cls_id].append(point['coord']+spacing)
+                if ',' in point['tag']['disc']:
+                    signs = point['tag']['disc'].split(',')
+                    cls_id = 7
+            gt_lst[cls_id].append(point['coord']+spacing+signs)
 
         # read pred
         slice_info_pred = match_pred(annotations_pred, anno_per_case['studyUid'])
@@ -142,13 +182,17 @@ if __name__ == '__main__':
 
         # cal metric per case per cls
         in_distance = []
-        for i in range(7):
+        for i in range(8):
             if not gt_lst[i]:
                 continue
-            case_TP, case_FP, case_FN = cal_metrics(gt_lst[i], pred_lst, i, in_distance)
+            if i < 7:
+                case_TP, case_FP, case_FN = cal_metrics(gt_lst[i], pred_lst, i, in_distance)
+            else:
+                case_TP, case_FP, case_FN = cal_metrics_multi(gt_lst[i], pred_lst, i, in_distance)
             TP[i] += case_TP
             FP[i] += case_FP
             FN[i] += case_FN
+
         # 5. distance >=6 for all: FP
         if len(pred_lst) != len(in_distance):
             FP[i] += len(pred_lst) - len(in_distance)
