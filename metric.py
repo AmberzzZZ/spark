@@ -269,7 +269,7 @@ if __name__ == '__main__':
             f1[i] = 2*precision[i]*recall[i] / (precision[i]+recall[i])
     # cal score
     weights = [TP[i]+FN[i] for i in range(7)]
-    weights = [float(i)/sum(weights) for i in range(7)]
+    weights = [float(i)/sum(weights) for i in weights]
     # score = math.mean(f1)
     score = np.sum(np.array(f1)*np.array(weights))
     print('cls f1: ', f1)
@@ -277,6 +277,31 @@ if __name__ == '__main__':
 
 
 
+# ######### model limit ########################
+# TP = [26,224,115,62,61,16,34]
+# FP = [0 for i in range(7)]
+# FN = [0 for i in range(7)]
+# TP[1] -= 54
+# FN[1] += 54
+
+# recall = [0 for i in range(7)]
+# precision = [0 for i in range(7)]
+# f1 = [0 for i in range(7)]
+# for i in range(7):
+#     recall[i] = TP[i] / (TP[i] + FN[i])
+#     precision[i] = TP[i] / (TP[i] + FP[i])
+#     if (precision[i]+recall[i])==0:
+#         f1[i] = 0
+#     else:
+#         f1[i] = 2*precision[i]*recall[i] / (precision[i]+recall[i])
+# # cal score
+# weights = [TP[i]+FN[i] for i in range(7)]
+# weights = [float(i)/sum(weights) for i in weights]
+# score = np.sum(np.array(f1)*np.array(weights))
+# print('cls f1: ', f1)
+# print('score: ', score)
+# # cls f1:  [1.0, 0.8629441624365483, 1.0, 1.0, 1.0, 1.0, 1.0]
+# # score:  0.9429358594531353
 
 
 
